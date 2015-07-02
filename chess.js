@@ -114,10 +114,10 @@ function possibleMoves(s) {
     case 'P':
         // multiplier for vertical movement
         var ml = (clr(data[s]) == 'w') ? -1 : 1;
-        // standard move
-        moves.push(sq(c.row + 1*ml, c.col));
-        // capturing
         var toSquare;
+        // standard move
+        if (!data[toSquare = sq(c.row + 1*ml, c.col)]) moves.push(toSquare);
+        // capturing
         if (data[toSquare = sq(c.row + 1*ml, c.col+1)]) moves.push(toSquare);
         if (data[toSquare = sq(c.row + 1*ml, c.col-1)]) moves.push(toSquare);
         // double move (from initial position)
@@ -135,7 +135,7 @@ function possibleMoves(s) {
 }
 
 // add squares, initialize data at the same time
-var firstClick;
+var firstClick, fcMoves;
 for (var row = 0; row < 8; ++row) {
     for (var col = 0; col < 8; ++col) {
         var s = sq(row, col);
@@ -146,15 +146,22 @@ for (var row = 0; row < 8; ++row) {
             width: (sz / 8) + 'px', height: (sz / 8) + 'px', float: 'left',
             boxSizing: 'border-box'
         }).attr('id', s).click(function() {
+            if (!myTurn) return;
             if (firstClick) {
-                if (firstClick != this.id) {
+                if (firstClick != this.id && fcMoves.indexOf(this.id) !== -1) {
                     makeMyMove(firstClick, this.id);
                 }
-                $('#' + firstClick).css('border', '');
+                $('>div', board).css('border', '');
                 firstClick = undefined;
             } else {
-                firstClick = this.id;
-                this.style.border = '5px solid red';
+                if (clr(data[this.id]) == myColor) {
+                    firstClick = this.id;
+                    $(this).css('border', '5px solid red');
+                    fcMoves = possibleMoves(firstClick);
+                    fcMoves.forEach(function(m) {
+                        $('#' + m).css('border', '5px solid green');
+                    });
+                }
             }
         }));
         // initialize board pieces
@@ -178,7 +185,7 @@ function getMoves(s) {
     return moveList;
 }
 // find the current game
-var myColor = 'w', myName = $('#active-user img').attr('alt').replace(/ /g, '');
+var myColor = 'w', myName = $('#active-user img').attr('alt').replace(/ /g, ''), myTurn = true;
 var msg = $($('div:has(>.mention)').get().reverse()).filter(function() {
         return this.lastChild.textContent.indexOf(' 1. ') === 0;
     }).eq(0),
@@ -199,6 +206,7 @@ if (msg2.length !== 0) {
     var newMoves = getMoves(msg2.text().slice(myOpponent.length + 2))
         .slice(moveList.length);
     if (newMoves) {
+        myTurn = false;
         var color = (moveList.length % 2 == 0) ? 'w' : 'b';
         for (var i = 0; i < newMoves.length; ++i) {
             doMove(newMoves[i], color);
@@ -210,6 +218,7 @@ if (msg2.length !== 0) {
 
 // logic for sending a move
 function makeMyMove(fromSquare, toSquare) {
+    myTurn = false;
     var move = (data[fromSquare].toUpperCase().replace('P', '')) +
         fromSquare + toSquare;
     move = doMove(move, myColor, true);
@@ -236,6 +245,7 @@ sock.onmessage = function(e) {
             var newMoves = getMoves(x.content.slice(myName.length + 2))
                 .slice(moveList.length);
             if (newMoves) {
+                myTurn = true;
                 var color = (moveList.length % 2 == 0) ? 'w' : 'b';
                 for (var i = 0; i < newMoves.length; ++i) {
                     doMove(newMoves[i], color);
