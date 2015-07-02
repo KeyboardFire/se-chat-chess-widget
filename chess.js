@@ -29,7 +29,7 @@ function updateBoard() {
             color = clr(data[s]),
             url = 'url("http://lichess1.org/assets/piece-src/cburnett/' +
                 color + piece + '.svg")';
-        $('.' + s, board).css('background-image', url);
+        $('#' + s, board).css('background-image', url);
     }
 }
 // apply a move to data
@@ -135,7 +135,6 @@ function possibleMoves(s) {
 }
 
 // add squares, initialize data at the same time
-// TODO why are the squares classes and not ids
 var firstClick;
 for (var row = 0; row < 8; ++row) {
     for (var col = 0; col < 8; ++col) {
@@ -144,13 +143,18 @@ for (var row = 0; row < 8; ++row) {
         board.append($('<div>').css({
             backgroundColor: ((row + col) % 2) == 0 ? '#FFF' : '#666',
             backgroundSize: 'cover',
-            width: (sz / 8) + 'px', height: (sz / 8) + 'px', float: 'left'
-        }).addClass(s).click(function() {
+            width: (sz / 8) + 'px', height: (sz / 8) + 'px', float: 'left',
+            boxSizing: 'border-box'
+        }).attr('id', s).click(function() {
             if (firstClick) {
-                makeMyMove(firstClick, this.className);
+                if (firstClick != this.id) {
+                    makeMyMove(firstClick, this.id);
+                }
+                $('#' + firstClick).css('border', '');
                 firstClick = undefined;
             } else {
-                firstClick = this.className;
+                firstClick = this.id;
+                this.style.border = '5px solid red';
             }
         }));
         // initialize board pieces
@@ -227,7 +231,8 @@ sock.onmessage = function(e) {
     var wd = JSON.parse(e.data)['r' + CHAT.CURRENT_ROOM_ID];
     wd = (wd || {}).e;
     (wd || []).forEach(function(x) {
-        if (x.content.indexOf('@' + myName + ' 1. ') === 0 && x.user_name == myOpponent) {
+        if (x.content && x.content.indexOf('@' + myName + ' 1. ') === 0 &&
+            x.user_name == myOpponent) {
             var newMoves = getMoves(x.content.slice(myName.length + 2))
                 .slice(moveList.length);
             if (newMoves) {
