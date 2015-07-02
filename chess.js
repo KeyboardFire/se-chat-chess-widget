@@ -33,23 +33,46 @@ function updateBoard() {
     }
 }
 // apply a move to data
-function doMove(move, color) {
+function doMove(move, color, returnFixedMove) {
     // TODO castling, make promotions actually do something, error handling
     move = move.match(/^([RNBQK]?)([a-h]?)([1-8]?)x?([a-h])([1-8])((?:=[RNBQK])?)\+?#?$/);
     var piece = move[1] || 'P', fromRow = move[2], fromCol = move[3],
         toRow = move[4], toCol = move[5], promotion = move[6];
+    var to = toRow + toCol;
     var from = Object.keys(data).filter(function(s) {
         return color == clr(data[s]) &&
                data[s].toUpperCase() == piece &&
                (!fromRow || (s[0] == fromRow)) &&
                (!fromCol || (s[1] == fromCol)) &&
-               possibleMoves(s).indexOf(toRow + toCol) !== -1;
+               possibleMoves(s).indexOf(to) !== -1;
     })[0];
-    var to = toRow + toCol;
+
+    // warning, super ugly line:
+    // TODO return + or # when applicable
+    if (returnFixedMove) {
+        var fixedMove = piece.replace('P', '') +
+            (((piece == 'P' && data[to]) || Object.keys(data).filter(function(s) {
+                return color == clr(data[s]) &&
+                       data[s].toUpperCase() == piece &&
+                       //(!fromRow || (s[0] == fromRow)) &&
+                       //(!fromCol || (s[1] == fromCol)) &&
+                       possibleMoves(s).indexOf(to) !== -1;
+            }).length > 1) ? fromRow : '') +
+            (Object.keys(data).filter(function(s) {
+                return color == clr(data[s]) &&
+                       data[s].toUpperCase() == piece &&
+                       (!fromRow || (s[0] == fromRow)) &&
+                       //(!fromCol || (s[1] == fromCol)) &&
+                       possibleMoves(s).indexOf(to) !== -1;
+            }).length > 1 ? fromCol : '') +
+            (data[to] ? 'x' : '') + to + promotion
+    }
 
     data[to] = data[from];
     delete data[from];
     updateBoard();
+
+    if (returnFixedMove) return fixedMove;
 }
 // list all possible squares that a piece could move to
 function possibleMoves(s) {
@@ -184,8 +207,8 @@ if (msg2.length !== 0) {
 // logic for sending a move
 function makeMyMove(fromSquare, toSquare) {
     var move = (data[fromSquare].toUpperCase().replace('P', '')) +
-               (data[toSquare] ? 'x' : '') + toSquare;
-    doMove(move, myColor);
+        fromSquare + toSquare;
+    move = doMove(move, myColor, true);
     moveList.push(move);
     var msgText = [];
     msgText.push('@' + myOpponent);
