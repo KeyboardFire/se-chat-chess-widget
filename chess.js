@@ -159,8 +159,17 @@ function isInCheck(color, mFrom, mTo) {
     }).reduce(function(a, b) {
         return a.concat(b);
     }, []);
-    console.log(data2, kingSq, attackedSquares);
     return attackedSquares.indexOf(kingSq) !== -1;
+}
+// takes a list of moves; calls doMove on only the moves that aren't already
+// in moveList
+function doNewMoves(newMoves) {
+    var color = (moveList.length % 2 == 0) ? 'w' : 'b';
+    for (var i = 0; i < newMoves.length; ++i) {
+        doMove(newMoves[i], color);
+        moveList.push(newMoves[i]);
+        color = (color == 'w') ? 'b' : 'w';
+    }
 }
 
 // add squares, initialize data at the same time
@@ -231,17 +240,11 @@ var msg2 = msg.closest('.user-container').nextAll('.mine').find('.content').filt
     return this.textContent.indexOf('@' + myOpponent + ' 1. ') === 0;
 }).eq(0);
 if (msg2.length !== 0) {
-    // TODO fix ugly code repetition (see a few lines down)
     var newMoves = getMoves(msg2.text().slice(myOpponent.length + 2))
         .slice(moveList.length);
     if (newMoves) {
         myTurn = false;
-        var color = (moveList.length % 2 == 0) ? 'w' : 'b';
-        for (var i = 0; i < newMoves.length; ++i) {
-            doMove(newMoves[i], color);
-            moveList.push(newMoves[i]);
-            color = (color == 'w') ? 'b' : 'w';
-        }
+        doNewMoves(newMoves);
     }
 }
 
@@ -275,12 +278,7 @@ sock.onmessage = function(e) {
                 .slice(moveList.length);
             if (newMoves) {
                 myTurn = true;
-                var color = (moveList.length % 2 == 0) ? 'w' : 'b';
-                for (var i = 0; i < newMoves.length; ++i) {
-                    doMove(newMoves[i], color);
-                    moveList.push(newMoves[i]);
-                    color = (color == 'w') ? 'b' : 'w';
-                }
+                doNewMoves(newMoves);
             }
         }
     });
