@@ -48,7 +48,7 @@ function doMove(move, color, returnFixedMove) {
     })[0];
 
     // warning, super ugly line:
-    // TODO return + or # when applicable
+    // TODO return # instead of + when applicable
     if (returnFixedMove) {
         var fixedMove = piece.replace('P', '') +
             (((piece == 'P' && data[to]) || Object.keys(data).filter(function(s) {
@@ -65,7 +65,8 @@ function doMove(move, color, returnFixedMove) {
                        //(!fromCol || (s[1] == fromCol)) &&
                        possibleMoves(s).indexOf(to) !== -1;
             }).length > 1 ? fromCol : '') +
-            (data[to] ? 'x' : '') + to + promotion
+            (data[to] ? 'x' : '') + to + promotion +
+            (isInCheck(color == 'w' ? 'b' : 'w', from, to) ? '+' : '');
     }
 
     data[to] = data[from];
@@ -75,8 +76,11 @@ function doMove(move, color, returnFixedMove) {
     if (returnFixedMove) return fixedMove;
 }
 // list all possible squares that a piece could move to
-function possibleMoves(s) {
-    // TODO castling, en passant, check
+// NOTE: customData also ignores check; this is a quirk (and an ugly kludge)
+//   because of isInCheck()
+function possibleMoves(s, customData) {
+    // TODO castling, en passant
+    var d = customData || data;
     var moves = [], c = coord(s);
     var addMovesWithDeltas = function(deltas, maxlen) {
             maxlen = maxlen || 7;
@@ -84,13 +88,13 @@ function possibleMoves(s) {
                 for (var i = 1; i <= maxlen; ++i) {
                     var toSquare = sq(c.row + delta[0]*i, c.col + delta[1]*i);
                     moves.push(toSquare);
-                    if (data[toSquare]) break;
+                    if (d[toSquare]) break;
                 }
             });
         },
         dDiagonal = [[1, 1], [-1, -1], [1, -1], [-1, 1]],
         dStraight = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-    switch (data[s].toUpperCase()) {
+    switch (d[s].toUpperCase()) {
     case 'R':
         addMovesWithDeltas(dStraight);
         break;
@@ -113,25 +117,50 @@ function possibleMoves(s) {
         break;
     case 'P':
         // multiplier for vertical movement
-        var ml = (clr(data[s]) == 'w') ? -1 : 1;
+        var ml = (clr(d[s]) == 'w') ? -1 : 1;
         var toSquare;
         // standard move
-        if (!data[toSquare = sq(c.row + 1*ml, c.col)]) moves.push(toSquare);
+        if (!d[toSquare = sq(c.row + 1*ml, c.col)]) moves.push(toSquare);
         // capturing
-        if (data[toSquare = sq(c.row + 1*ml, c.col+1)]) moves.push(toSquare);
-        if (data[toSquare = sq(c.row + 1*ml, c.col-1)]) moves.push(toSquare);
+        if (d[toSquare = sq(c.row + 1*ml, c.col+1)]) moves.push(toSquare);
+        if (d[toSquare = sq(c.row + 1*ml, c.col-1)]) moves.push(toSquare);
         // double move (from initial position)
-        if (c.row == 6 && ml == -1 && !data[sq(5, c.col)])
-            moves.push(sq(4, c.col));
-        if (c.row == 1 && ml == 1 && !data[sq(2, c.col)])
-            moves.push(sq(3, c.col));
+        if (c.row == 6 && ml == -1 && !d[sq(5, c.col)] &&
+            !d[toSquare = sq(4, c.col)]) moves.push(toSquare);
+        if (c.row == 1 && ml == 1 && !d[sq(2, c.col)] &&
+            !d[toSquare = sq(3, c.col)]) moves.push(toSquare);
         break;
     }
     // filter out moves that try to capture own piece or are off the board
+    // or put their own king in check
     moves = moves.filter(function(m) {
-        return m && (clr(data[s]) != clr(data[m]));
+        return m && (clr(d[s]) != clr(d[m])) &&
+            (customData || !isInCheck(clr(data[s]), s, m));
     });
     return moves;
+}
+// check if the king of a certain color is in check
+// optionally apply a certain move first (used to check whether a move is
+//   valid)
+function isInCheck(color, mFrom, mTo) {
+    var data2 = {};
+    for (var x in data) data2[x] = data[x];
+    if (mFrom) {
+        data2[mTo] = data2[mFrom];
+        delete data2[mFrom];
+    }
+    var kingSq = Object.keys(data2).filter(function(x) {
+        return (data2[x].toUpperCase() == 'K') && (clr(data2[x]) == color);
+    })[0];
+    var attackedSquares = Object.keys(data2).filter(function(x) {
+        return clr(data2[x]) != color;
+    }).map(function(x) {
+        return possibleMoves(x, data2);
+    }).reduce(function(a, b) {
+        return a.concat(b);
+    }, []);
+    console.log(data2, kingSq, attackedSquares);
+    return attackedSquares.indexOf(kingSq) !== -1;
 }
 
 // add squares, initialize data at the same time
